@@ -1,32 +1,43 @@
-# React + TypeScript + Vite
+# CID Viewer
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Modern React + TypeScript tool for viewing and exploring concept IDs with enhanced
+search, detail, value, and hierarchy views. This project uses
+[`episphere/conceptGithubActions`](https://github.com/episphere/conceptGithubActions)
+as a maintained reference/source project.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- Search by concept ID, question text, variable name, and related terms
+- Exact CID matches ranked ahead of fuzzy text matches
+- Linked concept detail records with clickable `*.json` references
+- React-based collapsible hierarchy generated from reference tree data
+- Static reference data files bundled under `public/data` for fast local browsing
 
-## React Compiler
+## Development
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+pnpm install
+pnpm dev
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+Quality checks:
+
+```bash
+pnpm lint
+pnpm build
+```
+
+## Refreshing Reference Data
+
+Clone the reference repository, then rebuild the static data files:
+
+```bash
+git clone --depth 1 https://github.com/episphere/conceptGithubActions.git /private/tmp/conceptGithubActions
+pnpm data:build /private/tmp/conceptGithubActions
+```
+
+The generated files are:
+
+- `public/data/concept-index.json`
+- `public/data/concept-details.json`
+- `public/data/concept-tree.json`

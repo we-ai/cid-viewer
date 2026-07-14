@@ -1,121 +1,164 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import './App.css'
+import { collectTreeNodePath, countTreeNodes } from './concept-utils'
+import { loadConceptData } from './data'
+import { getFeaturedConcepts, searchConcepts } from './search'
+import { ConceptDetails } from './components/ConceptDetails'
+import { SearchPanel } from './components/SearchPanel'
+import type {
+  ConceptDetailsPayload,
+  ConceptIndexEntry,
+  ConceptIndexPayload,
+  ConceptTreePayload,
+} from './types'
+
+type AppData = {
+  details: ConceptDetailsPayload
+  index: ConceptIndexPayload
+  tree: ConceptTreePayload
+}
+
+const getHashConceptId = () => {
+  const hash = window.location.hash.replace('#', '').trim()
+  return /^\d{9}$/.test(hash) ? hash : undefined
+}
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [data, setData] = useState<AppData>()
+  const [error, setError] = useState<string>()
+  const [query, setQuery] = useState('')
+  const [selectedId, setSelectedId] = useState<string | undefined>(() => getHashConceptId())
+
+  useEffect(() => {
+    let mounted = true
+
+    loadConceptData()
+      .then((loadedData) => {
+        if (mounted) setData(loadedData)
+      })
+      .catch((loadError: unknown) => {
+        if (mounted) {
+          setError(loadError instanceof Error ? loadError.message : 'Unable to load concept data')
+        }
+      })
+
+    return () => {
+      mounted = false
+    }
+  }, [])
+
+  useEffect(() => {
+    const handleHashChange = () => setSelectedId(getHashConceptId())
+    window.addEventListener('hashchange', handleHashChange)
+    window.addEventListener('popstate', handleHashChange)
+
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange)
+      window.removeEventListener('popstate', handleHashChange)
+    }
+  }, [])
+
+  const conceptMap = useMemo(() => {
+    if (!data) return new Map<string, ConceptIndexEntry>()
+    return new Map(data.index.concepts.map((concept) => [concept.id, concept]))
+  }, [data])
+
+  const featured = useMemo(
+    () => (data ? getFeaturedConcepts(data.index.concepts, data.tree.tree) : []),
+    [data],
+  )
+
+  const results = useMemo(
+    () => (data ? searchConcepts(query, data.index.concepts) : []),
+    [data, query],
+  )
+
+  const selectedConcept = selectedId ? conceptMap.get(selectedId) : undefined
+  const selectedRecord = selectedId ? data?.details.details[selectedId] : undefined
+  const selectedPath = useMemo(
+    () => (data && selectedId ? collectTreeNodePath(data.tree.tree, selectedId) : undefined),
+    [data, selectedId],
+  )
+  const treeNodeCount = useMemo(
+    () => (data ? countTreeNodes(data.tree.tree) : 0),
+    [data],
+  )
+
+  const selectConcept = useCallback((conceptId: string) => {
+    if (conceptId === 'root') {
+      return
+    }
+
+    setSelectedId(conceptId)
+    if (window.location.hash !== `#${conceptId}`) {
+      window.history.pushState(null, '', `#${conceptId}`)
+    }
+  }, [])
+
+  if (error) {
+    return (
+      <main className="app-shell">
+        <section className="load-state error-state">
+          <p className="eyebrow">Concept viewer</p>
+          <h1>Data failed to load</h1>
+          <p>{error}</p>
+        </section>
+      </main>
+    )
+  }
+
+  if (!data) {
+    return (
+      <main className="app-shell">
+        <section className="load-state">
+          <p className="eyebrow">Concept viewer</p>
+          <h1>Loading concept dictionary</h1>
+          <p>Preparing search, details, and hierarchy data.</p>
+        </section>
+      </main>
+    )
+  }
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <main className="app-shell">
+      <h1 className="app-title">CID Viewer</h1>
 
-      <div className="ticks"></div>
+      <header className="top-bar" aria-label="Concept data summary">
+        <dl>
+          <div>
+            <dt>Concepts</dt>
+            <dd>{data.index.metadata.conceptCount.toLocaleString()}</dd>
+          </div>
+          <div>
+            <dt>Details</dt>
+            <dd>{data.details.metadata.detailCount.toLocaleString()}</dd>
+          </div>
+          <div>
+            <dt>Tree nodes</dt>
+            <dd>{treeNodeCount.toLocaleString()}</dd>
+          </div>
+        </dl>
+      </header>
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+      <div className="workspace">
+        <SearchPanel
+          featured={featured}
+          focusSearch={!selectedId}
+          query={query}
+          results={results}
+          selectedId={selectedId}
+          onQueryChange={setQuery}
+          onSelectConcept={selectConcept}
+        />
+        <ConceptDetails
+          concept={selectedConcept}
+          detailsById={data.details.details}
+          record={selectedRecord}
+          treePath={selectedPath}
+          onSelectConcept={selectConcept}
+        />
+      </div>
+    </main>
   )
 }
 
