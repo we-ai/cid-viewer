@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import type { ConceptIndexEntry, SearchResult } from '../types'
 
 type SearchPanelProps = {
+  exactMatch: ConceptIndexEntry | undefined
   featured: ConceptIndexEntry[]
   focusSearch: boolean
   query: string
@@ -44,6 +45,7 @@ const ResultButton = ({
 )
 
 export function SearchPanel({
+  exactMatch,
   featured,
   focusSearch,
   query,
@@ -71,8 +73,8 @@ export function SearchPanel({
         </div>
       </div>
 
-      <label className="search-box">
-        <span>Search</span>
+      <label className={`search-box${exactMatch ? ' exact-match' : ''}`}>
+        <span className="search-label">Search</span>
         <input
           ref={inputRef}
           id="concept-search"

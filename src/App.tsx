@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import './App.css'
 import { collectTreeNodePath, countTreeNodes } from './concept-utils'
 import { loadConceptData } from './data'
-import { getFeaturedConcepts, searchConcepts } from './search'
+import { findExactConceptMatch, getFeaturedConcepts, searchConcepts } from './search'
 import { ConceptDetails } from './components/ConceptDetails'
 import { SearchPanel } from './components/SearchPanel'
 import type {
@@ -72,6 +72,10 @@ function App() {
     () => (data ? searchConcepts(query, data.index.concepts) : []),
     [data, query],
   )
+  const exactMatch = useMemo(
+    () => (data ? findExactConceptMatch(query, data.index.concepts) : undefined),
+    [data, query],
+  )
 
   const selectedConcept = selectedId ? conceptMap.get(selectedId) : undefined
   const selectedRecord = selectedId ? data?.details.details[selectedId] : undefined
@@ -84,9 +88,13 @@ function App() {
     [data],
   )
 
-  const selectConcept = useCallback((conceptId: string) => {
+  const selectConcept = useCallback((conceptId: string, options: { syncQuery?: boolean } = {}) => {
     if (conceptId === 'root') {
       return
+    }
+
+    if (options.syncQuery ?? true) {
+      setQuery(conceptId)
     }
 
     setSelectedId(conceptId)
@@ -94,6 +102,12 @@ function App() {
       window.history.pushState(null, '', `#${conceptId}`)
     }
   }, [])
+
+  useEffect(() => {
+    if (exactMatch?.id) {
+      selectConcept(exactMatch.id, { syncQuery: false })
+    }
+  }, [exactMatch?.id, selectConcept])
 
   if (error) {
     return (
@@ -143,6 +157,7 @@ function App() {
       <div className="workspace">
         <SearchPanel
           featured={featured}
+          exactMatch={exactMatch}
           focusSearch={!selectedId}
           query={query}
           results={results}

@@ -23,18 +23,21 @@ pnpm dev
 Quality checks:
 
 ```bash
+pnpm test
 pnpm lint
 pnpm build
 ```
 
 ## Refreshing Reference Data
 
-Clone the reference repository, then rebuild the static data files:
+Rebuild the static data files from the default reference repository:
 
 ```bash
-git clone --depth 1 https://github.com/episphere/conceptGithubActions.git /private/tmp/conceptGithubActions
-pnpm data:build /private/tmp/conceptGithubActions
+pnpm data:build
 ```
+
+`scripts/build-reference-data.mjs` always clones
+`https://github.com/episphere/conceptGithubActions` as the reference source.
 
 The generated files are:
 

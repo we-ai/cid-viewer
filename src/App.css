@@ -148,7 +148,7 @@
   border-bottom: 1px solid var(--border);
 }
 
-.search-box span {
+.search-label {
   display: block;
   margin-bottom: 6px;
   color: var(--muted);
@@ -170,6 +170,11 @@
 .search-box input:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.search-box.exact-match input {
+  border-color: #1f7a4d;
+  box-shadow: 0 0 0 3px rgba(31, 122, 77, 0.12);
 }
 
 .result-list {

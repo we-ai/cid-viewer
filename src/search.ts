@@ -91,6 +91,48 @@ const bestMatch = (query: string, concept: ConceptIndexEntry) => {
     .sort((a, b) => b.score - a.score)[0]
 }
 
+const findUniqueExactMatch = (
+  concepts: ConceptIndexEntry[],
+  isMatch: (concept: ConceptIndexEntry) => boolean,
+) => {
+  let match: ConceptIndexEntry | undefined
+
+  for (const concept of concepts) {
+    if (!isMatch(concept)) continue
+    if (match && match.id !== concept.id) return undefined
+    match = concept
+  }
+
+  return match
+}
+
+export const findExactConceptMatch = (
+  query: string,
+  concepts: ConceptIndexEntry[],
+): ConceptIndexEntry | undefined => {
+  const normalizedQuery = normalize(query)
+
+  if (normalizedQuery.length < 2) return undefined
+
+  const exactCidMatch = concepts.find((concept) => normalize(concept.id) === normalizedQuery)
+  if (exactCidMatch) return exactCidMatch
+
+  const exactTitleMatch = findUniqueExactMatch(
+    concepts,
+    (concept) => normalize(concept.title) === normalizedQuery,
+  )
+  if (exactTitleMatch) return exactTitleMatch
+
+  const exactVariableMatch = findUniqueExactMatch(concepts, (concept) =>
+    concept.variableNames.some((name) => normalize(name) === normalizedQuery),
+  )
+  if (exactVariableMatch) return exactVariableMatch
+
+  return findUniqueExactMatch(concepts, (concept) =>
+    concept.terms.some((term) => normalize(term) === normalizedQuery),
+  )
+}
+
 export const searchConcepts = (
   query: string,
   concepts: ConceptIndexEntry[],
