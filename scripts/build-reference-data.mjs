@@ -7,13 +7,25 @@ import { fileURLToPath } from 'node:url'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const projectRoot = path.resolve(__dirname, '..')
 const referenceRepo = 'https://github.com/episphere/conceptGithubActions'
+const referenceRevision = '1df3da519c47c6d877f9e6b5e96d92c2d8f649bd'
 const outputRoot = path.join(projectRoot, 'public', 'data')
 const tempRoots = []
 
 const cloneReferenceRepo = () => {
   const checkoutRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'concept-reference-'))
   tempRoots.push(checkoutRoot)
-  execFileSync('git', ['clone', '--depth', '1', referenceRepo, checkoutRoot], {
+  execFileSync('git', ['init', checkoutRoot], { stdio: 'inherit' })
+  execFileSync('git', ['-C', checkoutRoot, 'remote', 'add', 'origin', referenceRepo], {
+    stdio: 'inherit',
+  })
+  execFileSync(
+    'git',
+    ['-C', checkoutRoot, 'fetch', '--depth', '1', 'origin', referenceRevision],
+    {
+      stdio: 'inherit',
+    },
+  )
+  execFileSync('git', ['-C', checkoutRoot, 'checkout', '--detach', 'FETCH_HEAD'], {
     stdio: 'inherit',
   })
   return checkoutRoot
@@ -230,6 +242,7 @@ const buildData = () => {
   const metadata = {
     generatedFrom: referenceRepo,
     generatedAt: new Date().toISOString(),
+    referenceRevision,
     conceptCount: concepts.length,
     detailCount: Object.keys(details).length,
     treeRowCount: treeRows.length,

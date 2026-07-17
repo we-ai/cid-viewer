@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   conceptRefToId,
   formatValue,
@@ -16,6 +16,8 @@ import type {
 type ConceptDetailsProps = {
   concept: ConceptIndexEntry | undefined
   detailsById: Record<string, ConceptRecord>
+  detailsError?: string
+  detailsStatus: 'idle' | 'loading' | 'ready' | 'error'
   record: ConceptRecord | undefined
   treePath: ConceptTreeNode[] | undefined
   onSelectConcept: (conceptId: string) => void
@@ -241,7 +243,10 @@ function PossibleValues({
   onSelectConcept: (conceptId: string) => void
   record: ConceptRecord | undefined
 }) {
-  const sections = getPossibleValueSections(record, detailsById)
+  const sections = useMemo(
+    () => getPossibleValueSections(record, detailsById),
+    [detailsById, record],
+  )
 
   if (sections.length === 0) return null
 
@@ -288,10 +293,20 @@ function PossibleValues({
 export function ConceptDetails({
   concept,
   detailsById,
+  detailsError,
+  detailsStatus,
   record,
   treePath,
   onSelectConcept,
 }: ConceptDetailsProps) {
+  const detailEntries = useMemo(
+    () =>
+      Object.entries(record ?? {}).filter(
+        ([key]) => key !== 'conceptId' && !valueFieldNames.includes(key),
+      ),
+    [record],
+  )
+
   if (!concept && !record) {
     return (
       <section className="details-panel empty-detail" aria-label="Concept details">
@@ -304,9 +319,6 @@ export function ConceptDetails({
 
   const id = concept?.id ?? String(record?.conceptId ?? '')
   const title = concept?.title ?? getConceptTitle(record, id)
-  const detailEntries = Object.entries(record ?? {}).filter(
-    ([key]) => key !== 'conceptId' && !valueFieldNames.includes(key),
-  )
 
   return (
     <section className="details-panel" aria-label="Concept details">
@@ -336,7 +348,17 @@ export function ConceptDetails({
       />
 
       <div className="section-title">Dictionary record</div>
-      {detailEntries.length > 0 ? (
+      {detailsStatus === 'loading' ? (
+        <div className="empty-state compact">
+          <strong>Loading local detail record</strong>
+          <span>Fetching the dictionary fields for this concept.</span>
+        </div>
+      ) : detailsStatus === 'error' ? (
+        <div className="empty-state compact">
+          <strong>Unable to load detail records</strong>
+          <span>{detailsError ?? 'Try reloading the page and selecting the concept again.'}</span>
+        </div>
+      ) : detailEntries.length > 0 ? (
         <dl className="record-grid">
           {detailEntries.map(([key, value]) => (
             <div className="record-row" key={key}>

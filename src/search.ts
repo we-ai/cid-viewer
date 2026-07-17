@@ -1,9 +1,4 @@
-import type {
-  ConceptIndexEntry,
-  ConceptTreeNode,
-  SearchMatchKind,
-  SearchResult,
-} from './types'
+import type { ConceptIndexEntry, ConceptTreeNode, SearchMatchKind, SearchResult } from './types'
 
 const normalize = (value: string) =>
   value
@@ -13,15 +8,35 @@ const normalize = (value: string) =>
     .replace(/[^a-z0-9]+/g, ' ')
     .trim()
 
-const compact = (value: string) => normalize(value).replaceAll(' ', '')
+const compactNormalized = (value: string) => value.replaceAll(' ', '')
 
-const fuzzyScore = (query: string, target: string) => {
-  if (!query || !target) return 0
+type PreparedSearchText = {
+  compact: string
+  normalized: string
+  raw: string
+}
 
-  const queryText = compact(query)
-  const targetText = compact(target)
+type PreparedConceptSearchEntry = {
+  concept: ConceptIndexEntry
+  id: PreparedSearchText
+  title: PreparedSearchText
+  terms: PreparedSearchText[]
+  variableNames: PreparedSearchText[]
+}
 
+const prepareSearchText = (value: string): PreparedSearchText => {
+  const normalized = normalize(value)
+
+  return {
+    compact: compactNormalized(normalized),
+    normalized,
+    raw: value,
+  }
+}
+
+const fuzzyScore = (queryText: string, targetText: string) => {
   if (!queryText || !targetText) return 0
+
   if (targetText.includes(queryText)) return queryText.length / targetText.length
 
   let queryIndex = 0
@@ -47,105 +62,129 @@ const fuzzyScore = (query: string, target: string) => {
 }
 
 const scoreText = (
-  query: string,
-  text: string,
+  query: PreparedSearchText,
+  text: PreparedSearchText,
   kind: SearchMatchKind,
 ): Omit<SearchResult, 'concept'> | undefined => {
-  const normalizedQuery = normalize(query)
-  const normalizedText = normalize(text)
+  if (!query.normalized || !text.normalized) return undefined
 
-  if (!normalizedQuery || !normalizedText) return undefined
-
-  if (normalizedText === normalizedQuery) {
-    return { score: kind === 'cid' ? 1000 : 860, kind, matchedText: text }
+  if (text.normalized === query.normalized) {
+    return { score: kind === 'cid' ? 1000 : 860, kind, matchedText: text.raw }
   }
 
-  if (normalizedText.startsWith(normalizedQuery)) {
+  if (text.normalized.startsWith(query.normalized)) {
     const baseScore = kind === 'cid' ? 940 : kind === 'title' ? 780 : 680
-    return { score: baseScore - normalizedText.length / 100, kind, matchedText: text }
+    return { score: baseScore - text.normalized.length / 100, kind, matchedText: text.raw }
   }
 
-  if (normalizedText.includes(normalizedQuery)) {
+  if (text.normalized.includes(query.normalized)) {
     const baseScore = kind === 'title' ? 700 : kind === 'variable' ? 660 : 610
-    return { score: baseScore - normalizedText.indexOf(normalizedQuery), kind, matchedText: text }
+    return {
+      score: baseScore - text.normalized.indexOf(query.normalized),
+      kind,
+      matchedText: text.raw,
+    }
   }
 
-  const fuzzy = fuzzyScore(query, text)
+  const fuzzy = fuzzyScore(query.compact, text.compact)
   if (fuzzy >= 0.52) {
-    return { score: 430 * fuzzy, kind: 'fuzzy', matchedText: text }
+    return { score: 430 * fuzzy, kind: 'fuzzy', matchedText: text.raw }
   }
 
   return undefined
 }
 
-const bestMatch = (query: string, concept: ConceptIndexEntry) => {
-  const candidates: Array<Omit<SearchResult, 'concept'> | undefined> = [
-    scoreText(query, concept.id, 'cid'),
-    scoreText(query, concept.title, 'title'),
-    ...concept.variableNames.map((name) => scoreText(query, name, 'variable')),
-    ...concept.terms.slice(0, 24).map((term) => scoreText(query, term, 'term')),
-  ]
+const bestMatch = (query: PreparedSearchText, concept: PreparedConceptSearchEntry) => {
+  let best = scoreText(query, concept.id, 'cid')
+  const candidates: Array<[PreparedSearchText, SearchMatchKind]> = [[concept.title, 'title']]
 
-  return candidates
-    .filter((candidate): candidate is Omit<SearchResult, 'concept'> => Boolean(candidate))
-    .sort((a, b) => b.score - a.score)[0]
+  for (const name of concept.variableNames) {
+    candidates.push([name, 'variable'])
+  }
+
+  for (let index = 0; index < concept.terms.length && index < 24; index += 1) {
+    candidates.push([concept.terms[index], 'term'])
+  }
+
+  for (const [text, kind] of candidates) {
+    const candidate = scoreText(query, text, kind)
+    if (!candidate) continue
+    if (!best || candidate.score > best.score) {
+      best = candidate
+    }
+  }
+
+  return best
 }
 
 const findUniqueExactMatch = (
-  concepts: ConceptIndexEntry[],
-  isMatch: (concept: ConceptIndexEntry) => boolean,
-) => {
-  let match: ConceptIndexEntry | undefined
+  concepts: PreparedConceptSearchEntry[],
+  isMatch: (concept: PreparedConceptSearchEntry) => boolean,
+): ConceptIndexEntry | undefined => {
+  let match: PreparedConceptSearchEntry | undefined
 
   for (const concept of concepts) {
     if (!isMatch(concept)) continue
-    if (match && match.id !== concept.id) return undefined
+    if (match && match.concept.id !== concept.concept.id) return undefined
     match = concept
   }
 
-  return match
+  return match?.concept
 }
 
 export const findExactConceptMatch = (
   query: string,
-  concepts: ConceptIndexEntry[],
+  concepts: PreparedConceptSearchEntry[],
 ): ConceptIndexEntry | undefined => {
   const normalizedQuery = normalize(query)
 
   if (normalizedQuery.length < 2) return undefined
 
-  const exactCidMatch = concepts.find((concept) => normalize(concept.id) === normalizedQuery)
-  if (exactCidMatch) return exactCidMatch
+  const exactCidMatch = concepts.find((concept) => concept.id.normalized === normalizedQuery)
+  if (exactCidMatch) return exactCidMatch.concept
 
   const exactTitleMatch = findUniqueExactMatch(
     concepts,
-    (concept) => normalize(concept.title) === normalizedQuery,
+    (concept) => concept.title.normalized === normalizedQuery,
   )
   if (exactTitleMatch) return exactTitleMatch
 
   const exactVariableMatch = findUniqueExactMatch(concepts, (concept) =>
-    concept.variableNames.some((name) => normalize(name) === normalizedQuery),
+    concept.variableNames.some((name) => name.normalized === normalizedQuery),
   )
   if (exactVariableMatch) return exactVariableMatch
 
   return findUniqueExactMatch(concepts, (concept) =>
-    concept.terms.some((term) => normalize(term) === normalizedQuery),
+    concept.terms.some((term) => term.normalized === normalizedQuery),
   )
 }
 
+export const prepareConceptSearchIndex = (
+  concepts: ConceptIndexEntry[],
+): PreparedConceptSearchEntry[] =>
+  concepts.map((concept) => ({
+    concept,
+    id: prepareSearchText(concept.id),
+    title: prepareSearchText(concept.title),
+    terms: concept.terms.map((term) => prepareSearchText(term)),
+    variableNames: concept.variableNames.map((name) => prepareSearchText(name)),
+  }))
+
 export const searchConcepts = (
   query: string,
-  concepts: ConceptIndexEntry[],
+  concepts: PreparedConceptSearchEntry[],
   limit = 80,
 ): SearchResult[] => {
   const trimmedQuery = query.trim()
 
   if (trimmedQuery.length < 2) return []
 
+  const preparedQuery = prepareSearchText(trimmedQuery)
+
   return concepts
     .map((concept) => {
-      const match = bestMatch(trimmedQuery, concept)
-      return match ? { concept, ...match } : undefined
+      const match = bestMatch(preparedQuery, concept)
+      return match ? { concept: concept.concept, ...match } : undefined
     })
     .filter((result): result is SearchResult => Boolean(result))
     .sort((a, b) => {

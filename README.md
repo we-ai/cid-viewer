@@ -37,7 +37,11 @@ pnpm data:build
 ```
 
 `scripts/build-reference-data.mjs` always clones
-`https://github.com/episphere/conceptGithubActions` as the reference source.
+`https://github.com/episphere/conceptGithubActions` as the reference source and checks
+out the pinned upstream revision `1df3da519c47c6d877f9e6b5e96d92c2d8f649bd`.
+
+Generated metadata includes `referenceRevision` so downstream builds can confirm
+which upstream snapshot produced the bundled JSON files.
 
 The generated files are:
 
