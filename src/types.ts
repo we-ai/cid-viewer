@@ -18,6 +18,7 @@ export type ConceptIndexEntry = {
 export type DataMetadata = {
   generatedFrom: string
   generatedAt: string
+  referenceRevision?: string
   conceptCount: number
   detailCount: number
   treeRowCount: number

@@ -36,6 +36,12 @@ export const loadConceptTree = () => {
   return treePromise
 }
 
+export const loadConceptShellData = async () => {
+  const [index, tree] = await Promise.all([loadConceptIndex(), loadConceptTree()])
+
+  return { index, tree }
+}
+
 export const loadConceptData = async () => {
   const [index, details, tree] = await Promise.all([
     loadConceptIndex(),

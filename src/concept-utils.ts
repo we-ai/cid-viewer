@@ -1,5 +1,11 @@
 import type { ConceptRecord, ConceptTreeNode, JsonValue } from './types'
 
+export type ConceptTreeLookup = {
+  count: number
+  nodesById: Map<string, ConceptTreeNode>
+  parentsById: Map<string, string | undefined>
+}
+
 export const isRecord = (value: JsonValue): value is Record<string, JsonValue> =>
   Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 
@@ -42,21 +48,45 @@ export const collectTreePath = (
 }
 
 export const collectTreeNodePath = (
-  node: ConceptTreeNode,
+  lookup: ConceptTreeLookup,
   targetId: string,
-  path: ConceptTreeNode[] = [],
 ): ConceptTreeNode[] | undefined => {
-  const nextPath = [...path, node]
+  const startNode = lookup.nodesById.get(targetId)
+  if (!startNode) return undefined
 
-  if (node.id === targetId) return nextPath
+  const path: ConceptTreeNode[] = []
+  let currentId: string | undefined = targetId
 
-  for (const child of node.children ?? []) {
-    const result = collectTreeNodePath(child, targetId, nextPath)
-    if (result) return result
+  while (currentId) {
+    const node = lookup.nodesById.get(currentId)
+    if (!node) return undefined
+    path.push(node)
+    currentId = lookup.parentsById.get(currentId)
   }
 
-  return undefined
+  return path.reverse()
 }
 
-export const countTreeNodes = (node: ConceptTreeNode): number =>
-  1 + (node.children ?? []).reduce((total, child) => total + countTreeNodes(child), 0)
+export const buildConceptTreeLookup = (root: ConceptTreeNode): ConceptTreeLookup => {
+  const nodesById = new Map<string, ConceptTreeNode>()
+  const parentsById = new Map<string, string | undefined>()
+  let count = 0
+  const stack: Array<{ node: ConceptTreeNode; parentId: string | undefined }> = [
+    { node: root, parentId: undefined },
+  ]
+
+  while (stack.length > 0) {
+    const current = stack.pop()
+    if (!current) continue
+
+    count += 1
+    nodesById.set(current.node.id, current.node)
+    parentsById.set(current.node.id, current.parentId)
+
+    for (const child of current.node.children ?? []) {
+      stack.push({ node: child, parentId: current.node.id })
+    }
+  }
+
+  return { count, nodesById, parentsById }
+}

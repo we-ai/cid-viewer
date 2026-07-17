@@ -2,7 +2,7 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
-import { loadConceptData } from './data'
+import { loadConceptDetails, loadConceptShellData } from './data'
 import type {
   ConceptDetailsPayload,
   ConceptIndexPayload,
@@ -10,7 +10,8 @@ import type {
 } from './types'
 
 vi.mock('./data', () => ({
-  loadConceptData: vi.fn(),
+  loadConceptDetails: vi.fn(),
+  loadConceptShellData: vi.fn(),
 }))
 
 const index: ConceptIndexPayload = {
@@ -87,12 +88,15 @@ const tree: ConceptTreePayload = {
   },
 }
 
-const mockLoadConceptData = vi.mocked(loadConceptData)
+const mockLoadConceptDetails = vi.mocked(loadConceptDetails)
+const mockLoadConceptShellData = vi.mocked(loadConceptShellData)
 
 describe('App search and selection', () => {
   beforeEach(() => {
-    mockLoadConceptData.mockReset()
-    mockLoadConceptData.mockResolvedValue({ details, index, tree })
+    mockLoadConceptDetails.mockReset()
+    mockLoadConceptShellData.mockReset()
+    mockLoadConceptDetails.mockResolvedValue(details)
+    mockLoadConceptShellData.mockResolvedValue({ index, tree })
     window.history.replaceState(null, '', '/cid-viewer/')
   })
 
@@ -107,6 +111,7 @@ describe('App search and selection', () => {
     expect(search).toHaveValue('111111111')
     expect(await screen.findByRole('heading', { level: 2, name: 'Parent Concept' })).toBeInTheDocument()
     expect(window.location.hash).toBe('#111111111')
+    expect(mockLoadConceptDetails).toHaveBeenCalledTimes(1)
 
     const searchPanel = screen.getByRole('complementary', { name: 'Concept search' })
     expect(within(searchPanel).queryByText('Exact match selected')).not.toBeInTheDocument()
@@ -125,6 +130,7 @@ describe('App search and selection', () => {
       await screen.findByRole('heading', { level: 2, name: 'Unique Exact Title' }),
     ).toBeInTheDocument()
     expect(window.location.hash).toBe('#333333333')
+    expect(mockLoadConceptDetails).toHaveBeenCalledTimes(1)
   })
 
   it('syncs the search input when a displayed concept ID link is clicked', async () => {
@@ -138,6 +144,7 @@ describe('App search and selection', () => {
 
     const search = screen.getByRole('searchbox', { name: 'Search' })
     expect(search).toHaveValue('111111111')
+    expect(search).toHaveValue('111111111')
     expect(await screen.findByRole('heading', { level: 2, name: 'Parent Concept' })).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: '222222222.json' }))
@@ -145,5 +152,12 @@ describe('App search and selection', () => {
     expect(search).toHaveValue('222222222')
     expect(await screen.findByRole('heading', { level: 2, name: 'Linked Concept' })).toBeInTheDocument()
     expect(window.location.hash).toBe('#222222222')
+  })
+
+  it('does not fetch details until a concept is selected', async () => {
+    render(<App />)
+
+    await screen.findByRole('searchbox', { name: 'Search' })
+    expect(mockLoadConceptDetails).not.toHaveBeenCalled()
   })
 })

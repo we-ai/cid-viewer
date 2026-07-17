@@ -36,8 +36,15 @@ Rebuild the static data files from the default reference repository:
 pnpm data:build
 ```
 
-`scripts/build-reference-data.mjs` always clones
-`https://github.com/episphere/conceptGithubActions` as the reference source.
+The reference source is configured in
+`scripts/reference-data-source.json`.
+`scripts/build-reference-data.mjs` reads that file, compares its configured
+revision with the generated metadata in `public/data/concept-index.json`, and
+skips rebuilding when the bundled data already matches the same upstream
+snapshot.
+
+Generated metadata includes `referenceRevision` so downstream builds can confirm
+which upstream snapshot produced the bundled JSON files.
 
 The generated files are:
 
