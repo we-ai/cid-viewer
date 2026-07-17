@@ -14,7 +14,7 @@ const tempRoots = []
 const cloneReferenceRepo = () => {
   const checkoutRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'concept-reference-'))
   tempRoots.push(checkoutRoot)
-  execFileSync('git', ['init', checkoutRoot], { stdio: 'inherit' })
+  execFileSync('git', ['init', '--initial-branch=main', checkoutRoot], { stdio: 'inherit' })
   execFileSync('git', ['-C', checkoutRoot, 'remote', 'add', 'origin', referenceRepo], {
     stdio: 'inherit',
   })
