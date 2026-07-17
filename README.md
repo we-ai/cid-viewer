@@ -37,7 +37,7 @@ pnpm data:build
 ```
 
 The reference source is configured in
-`/home/runner/work/cid-viewer/cid-viewer/scripts/reference-data-source.json`.
+`scripts/reference-data-source.json`.
 `scripts/build-reference-data.mjs` reads that file, compares its configured
 revision with the generated metadata in `public/data/concept-index.json`, and
 skips rebuilding when the bundled data already matches the same upstream
