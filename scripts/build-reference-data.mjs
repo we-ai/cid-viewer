@@ -6,10 +6,32 @@ import { fileURLToPath } from 'node:url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const projectRoot = path.resolve(__dirname, '..')
-const referenceRepo = 'https://github.com/episphere/conceptGithubActions'
-const referenceRevision = '1df3da519c47c6d877f9e6b5e96d92c2d8f649bd'
+const referenceSourcePath = path.join(projectRoot, 'scripts', 'reference-data-source.json')
 const outputRoot = path.join(projectRoot, 'public', 'data')
+const outputFiles = ['concept-index.json', 'concept-details.json', 'concept-tree.json']
 const tempRoots = []
+
+const referenceSource = JSON.parse(fs.readFileSync(referenceSourcePath, 'utf8'))
+const referenceRepo = String(referenceSource.repository)
+const referenceRevision = String(referenceSource.revision)
+
+const outputFilePath = (fileName) => path.join(outputRoot, fileName)
+
+const hasGeneratedOutputs = () => outputFiles.every((fileName) => fs.existsSync(outputFilePath(fileName)))
+
+const hasCurrentReferenceData = () => {
+  if (!hasGeneratedOutputs()) return false
+
+  try {
+    const existingIndex = JSON.parse(fs.readFileSync(outputFilePath('concept-index.json'), 'utf8'))
+    return (
+      existingIndex?.metadata?.generatedFrom === referenceRepo &&
+      existingIndex?.metadata?.referenceRevision === referenceRevision
+    )
+  } catch {
+    return false
+  }
+}
 
 const cloneReferenceRepo = () => {
   const checkoutRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'concept-reference-'))
@@ -255,18 +277,29 @@ const buildData = () => {
   }
 }
 
-try {
-  referenceRoot = cloneReferenceRepo()
+const main = () => {
   fs.mkdirSync(outputRoot, { recursive: true })
 
+  if (hasCurrentReferenceData()) {
+    console.log(
+      `Skipping rebuild for ${path.relative(projectRoot, outputRoot)} because reference revision ${referenceRevision} is unchanged.`,
+    )
+    return
+  }
+
+  referenceRoot = cloneReferenceRepo()
   const data = buildData()
-  fs.writeFileSync(path.join(outputRoot, 'concept-index.json'), JSON.stringify(data.index))
-  fs.writeFileSync(path.join(outputRoot, 'concept-details.json'), JSON.stringify(data.details))
-  fs.writeFileSync(path.join(outputRoot, 'concept-tree.json'), JSON.stringify(data.tree))
+  fs.writeFileSync(outputFilePath('concept-index.json'), JSON.stringify(data.index))
+  fs.writeFileSync(outputFilePath('concept-details.json'), JSON.stringify(data.details))
+  fs.writeFileSync(outputFilePath('concept-tree.json'), JSON.stringify(data.tree))
 
   console.log(
     `Wrote ${data.index.metadata.conceptCount} concepts, ${data.details.metadata.detailCount} detail records, and ${data.tree.metadata.treeRowCount} tree rows to ${path.relative(projectRoot, outputRoot)}`,
   )
+}
+
+try {
+  main()
 } finally {
   for (const tempRoot of tempRoots) {
     fs.rmSync(tempRoot, { force: true, recursive: true })
