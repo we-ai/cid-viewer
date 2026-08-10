@@ -6,18 +6,29 @@ import { fileURLToPath } from 'node:url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const projectRoot = path.resolve(__dirname, '..')
-const referenceSourcePath = path.join(projectRoot, 'scripts', 'reference-data-source.json')
+const referenceRepo = 'https://github.com/episphere/conceptGithubActions'
 const outputRoot = path.join(projectRoot, 'public', 'data')
 const outputFiles = ['concept-index.json', 'concept-details.json', 'concept-tree.json']
 const tempRoots = []
 
-const referenceSource = JSON.parse(fs.readFileSync(referenceSourcePath, 'utf8'))
-const referenceRepo = String(referenceSource.repository)
-const referenceRevision = String(referenceSource.revision)
+let referenceRevision = ''
 
 const outputFilePath = (fileName) => path.join(outputRoot, fileName)
 
 const hasGeneratedOutputs = () => outputFiles.every((fileName) => fs.existsSync(outputFilePath(fileName)))
+
+const resolveLatestReferenceRevision = () => {
+  const remoteHead = execFileSync('git', ['ls-remote', '--exit-code', referenceRepo, 'HEAD'], {
+    encoding: 'utf8',
+  })
+  const revision = remoteHead.match(/^([0-9a-f]{40,64})\s+HEAD$/m)?.[1]
+
+  if (!revision) {
+    throw new Error(`Could not resolve the latest commit for ${referenceRepo}`)
+  }
+
+  return revision
+}
 
 const hasCurrentReferenceData = () => {
   if (!hasGeneratedOutputs()) return false
@@ -279,6 +290,7 @@ const buildData = () => {
 
 const main = () => {
   fs.mkdirSync(outputRoot, { recursive: true })
+  referenceRevision = resolveLatestReferenceRevision()
 
   if (hasCurrentReferenceData()) {
     console.log(

@@ -36,12 +36,10 @@ Rebuild the static data files from the default reference repository:
 pnpm data:build
 ```
 
-The reference source is configured in
-`scripts/reference-data-source.json`.
-`scripts/build-reference-data.mjs` reads that file, compares its configured
-revision with the generated metadata in `public/data/concept-index.json`, and
-skips rebuilding when the bundled data already matches the same upstream
-snapshot.
+`scripts/build-reference-data.mjs` resolves the latest commit from the reference
+repository's default branch and compares it with the generated metadata in
+`public/data/concept-index.json`. It skips rebuilding when the bundled data
+already matches that upstream snapshot.
 
 Generated metadata includes `referenceRevision` so downstream builds can confirm
 which upstream snapshot produced the bundled JSON files.
