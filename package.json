@@ -13,7 +13,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@ff-labs/fff-node": "^0.9.6",
+    "@ff-labs/fff-node": "^0.10.3",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },
